@@ -176,11 +176,11 @@ body {
 /* ─── SECTIONS ─── */
 .section {
   height: 100vh; display: flex; align-items: center;
-  padding: 80px 160px 40px 140px; position: relative;
+  padding: 80px 100px 40px 180px; position: relative;
   overflow: hidden;
 }
 .section.align-left { justify-content: flex-start; }
-.section.align-right { justify-content: flex-end; padding-right: 180px; }
+.section.align-right { justify-content: flex-end; padding-right: 220px; }
 .section-inner { max-width: 500px; width: 42%; max-height: calc(100vh - 120px); overflow-y: auto; }
 
 /* ─── TYPOGRAPHY ─── */
@@ -747,11 +747,11 @@ const states = mobile ? [
   { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 4, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
   { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 5, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
 ] : [
-  { px:  1.6, py: 0,    pz: 0,   rx: 0, ry: 0,      rz: 0, s: 1.0,  rimRI: 0.5, rimLI: 0.25 },  // S1
-  { px: -1.6, py: 0.2,  pz: 0,   rx: 0, ry: P2,     rz: 0, s: 0.95, rimRI: 0.5, rimLI: 0.25 },  // S2
-  { px:  1.6, py: 0.15, pz: 0,   rx: 0, ry: P2 * 2, rz: 0, s: 0.9,  rimRI: 0.5, rimLI: 0.25 },  // S3
-  { px: -1.6, py: -0.1, pz: 0,   rx: 0, ry: P2 * 3, rz: 0, s: 1.0,  rimRI: 0.5, rimLI: 0.25 },  // S4
-  { px:  1.6, py: 0,    pz: 0,   rx: 0, ry: P2 * 4, rz: 0, s: 0.95, rimRI: 0.5, rimLI: 0.25 },  // S5
+  { px:  2.2, py: 0,    pz: 0,   rx: 0, ry: 0,      rz: 0, s: 1.0,  rimRI: 0.5, rimLI: 0.25 },  // S1
+  { px: -2.2, py: 0.2,  pz: 0,   rx: 0, ry: P2,     rz: 0, s: 0.95, rimRI: 0.5, rimLI: 0.25 },  // S2
+  { px:  2.2, py: 0.15, pz: 0,   rx: 0, ry: P2 * 2, rz: 0, s: 0.9,  rimRI: 0.5, rimLI: 0.25 },  // S3
+  { px: -2.2, py: -0.1, pz: 0,   rx: 0, ry: P2 * 3, rz: 0, s: 1.0,  rimRI: 0.5, rimLI: 0.25 },  // S4
+  { px:  2.2, py: 0,    pz: 0,   rx: 0, ry: P2 * 4, rz: 0, s: 0.95, rimRI: 0.5, rimLI: 0.25 },  // S5
   { px: -1.6, py: 0,    pz: 0.6, rx: 0, ry: P2 * 5, rz: 0, s: 1.15, rimRI: 0.8, rimLI: 0.4 },   // S6
 ];
 
