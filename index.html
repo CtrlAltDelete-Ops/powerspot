@@ -56,7 +56,13 @@ body {
 }
 
 /* ─── THREE.JS CANVAS ─── */
-#c { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+#c { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+/* Mobile: dim the bank so it sits behind the headline rather than competing
+   with it. 0.7 keeps the dark body readable against the near-black background
+   (any lower and the bank silhouette vanishes). */
+@media (max-width: 768px) {
+  #c { opacity: 0.7; }
+}
 
 /* ─── CSS FALLBACK ─── */
 #fallback {
@@ -373,7 +379,9 @@ body {
 @media (max-width: 768px) {
   #side-nav { display: none; }
   #nav { padding: 0 20px; }
-  #c, #fallback { display: none !important; }
+  /* Keep #c visible on mobile (powerbank is dimmed via opacity above);
+     fallback stays hidden since the dimmed bank is the intended look. */
+  #fallback { display: none !important; }
   .section {
     padding: 80px 20px 24px !important;
     height: 100vh;
@@ -777,14 +785,14 @@ scene.add(new THREE.AmbientLight(0x080808, 0.2));
 // rx/rz = tilt, ry = scroll-driven rotation offset (spin is added on top)
 const P2 = Math.PI * 2;
 const states = mobile ? [
-  // S1 hero: bank visible, centered slightly below middle so headline reads above it.
-  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
-  // S2–S6: scale 0 hides the bank — circuits-only experience on subsequent sections.
-  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
+  // Mobile: bank visible on every section, centered. Scrolling drives a full
+  // turn per section (ry stepped by P2). Dimmed via CSS so it sits behind content.
+  { px: 0, py: 0, pz: 0, rx: 0, ry: 0,      rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: 0, pz: 0, rx: 0, ry: P2,     rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 2, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 3, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 4, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 5, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
 ] : [
   { px:  2.2, py: 0,    pz: 0,   rx: 0, ry: 0,      rz: 0, s: 1.0,  rimRI: 0.5, rimLI: 0.25 },  // S1
   { px: -2.2, py: 0.2,  pz: 0,   rx: 0, ry: P2,     rz: 0, s: 0.95, rimRI: 0.5, rimLI: 0.25 },  // S2
@@ -1176,7 +1184,8 @@ function animate(now) {
 
   if (pivotGroup) {
     const L = THREE.MathUtils.lerp;
-    // Slower lerp on mobile gives a more cinematic fade-out when leaving S1.
+    // Slower lerp on mobile (~1s settle) gives a calmer, more cinematic feel
+    // as the bank rotates through each section's target ry on scroll.
     const f = 1 - Math.pow(1 - (mobile ? 0.05 : lerpF), dt * 60);
 
     smooth.px = L(smooth.px, cur.px, f);
