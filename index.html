@@ -372,7 +372,7 @@ body {
 @media (max-width: 768px) {
   #side-nav { display: none; }
   #nav { padding: 0 20px; }
-  .section { padding: 80px 20px !important; height: 100vh; }
+  .section { padding: 100px 20px 40px !important; height: 100vh; align-items: flex-start; }
   .section.align-left, .section.align-right { justify-content: flex-start; }
   .section-inner { width: 100% !important; max-width: 100% !important; }
   .hero-h { font-size: 36px; }
@@ -873,20 +873,16 @@ document.fonts.ready.then(() => { fontsOk = true; checkReady(); });
 
 function checkReady() {
   if (!(modelReady || fallback.style.display === 'block') || !fontsOk) return;
+  // Scroll to top BEFORE loader fades so user never sees the jump
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  initReveals();
   setTimeout(() => {
     loaderEl.classList.add('done');
     setTimeout(() => {
       loaderEl.style.display = 'none';
-      window.scrollTo({ top: 0, behavior: 'auto' });
-      initReveals();
-      requestAnimationFrame(() => triggerReveals(0));
-    }, 600);
-    // Safety: force hero visible after 2s
-    setTimeout(() => {
       triggerReveals(0);
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    }, 2000);
-  }, 200);
+    }, 600);
+  }, 100);
 }
 
 /* ─── SCROLL SNAP CONTROLLER ─── */
