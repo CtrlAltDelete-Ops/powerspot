@@ -245,11 +245,11 @@ body {
 .loc:hover { color: #2979ff; }
 
 /* ─── BENEFITS ─── */
-.benefits { margin-top: 40px; }
-.benefit { padding: 28px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.benefits { margin-top: 28px; }
+.benefit { padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .benefit:first-child { border-top: 1px solid rgba(255,255,255,0.06); }
-.benefit-t { font: 700 22px 'Sora', sans-serif; color: #fff; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
-.benefit-d { font: 400 16px 'DM Sans', sans-serif; color: rgba(255,255,255,0.45); max-width: 440px; line-height: 1.6; }
+.benefit-t { font: 700 20px 'Sora', sans-serif; color: #fff; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
+.benefit-d { font: 400 15px 'DM Sans', sans-serif; color: rgba(255,255,255,0.45); max-width: 440px; line-height: 1.55; }
 
 /* ─── SCROLL HINT ─── */
 .scroll-hint {
@@ -374,36 +374,52 @@ body {
   #side-nav { display: none; }
   #nav { padding: 0 20px; }
   .section {
-    padding: 80px 20px 30px !important;
+    padding: 80px 20px 24px !important;
     height: 100vh;
+    height: 100dvh;
     align-items: center;
     justify-content: center !important;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden !important;
   }
   .section-inner {
     width: 100% !important; max-width: 100% !important;
-    max-height: calc(100vh - 110px);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    max-height: none !important;
+    overflow: visible !important;
   }
-  .step-d, .benefit-d, .body-t { font-size: 14px !important; }
-  .step-t, .benefit-t { font-size: 17px !important; }
-  .stat .num { font-size: 26px !important; }
-  .steps .step { padding: 16px 0 !important; }
-  .benefits .benefit { padding: 18px 0 !important; }
-  .hero-h { font-size: 36px; }
-  .headline { font-size: 24px; }
-  .stats { gap: 28px; }
-  .loc-grid { grid-template-columns: repeat(2, 1fr); gap: 12px 20px; }
-  .loc { font-size: 13px; }
-  .ft-main { flex-direction: column; gap: 40px; }
-  .ft-right { gap: 40px; }
-  #footer { padding: 40px 20px !important; }
+  .label { font-size: 11px !important; margin-bottom: 12px !important; letter-spacing: 2px !important; }
+  .body-t { font-size: 13px !important; line-height: 1.6 !important; }
+  .step-d, .benefit-d { font-size: 13px !important; line-height: 1.55 !important; }
+  .step-t, .benefit-t { font-size: 16px !important; letter-spacing: 1.5px !important; }
+  .step-n { font-size: 11px !important; }
+  .stat .num { font-size: 24px !important; }
+  .stat .txt { font-size: 10px !important; }
+  .steps { margin-top: 22px !important; }
+  .steps .step { padding: 12px 0 !important; }
+  .benefits { margin-top: 18px !important; }
+  .benefits .benefit { padding: 12px 0 !important; }
+  .hero-h { font-size: 32px !important; margin-bottom: 20px !important; }
+  .headline { font-size: 22px !important; margin-bottom: 16px !important; }
+  .stats { gap: 20px !important; margin-top: 24px !important; }
+  .loc-grid { grid-template-columns: repeat(2, 1fr); gap: 6px 16px; margin-top: 22px !important; }
+  .loc { font-size: 12px !important; padding: 6px 0 !important; letter-spacing: 0.5px !important; }
+  .btn { padding: 12px 22px; font-size: 12px; }
+  .btn-group { gap: 12px; margin-top: 20px !important; }
+  .ft-main { flex-direction: column; gap: 24px; margin-bottom: 28px !important; }
+  .ft-right { gap: 36px; }
+  .ft-mission { font-size: 13px !important; line-height: 1.6 !important; margin-bottom: 14px !important; }
+  .ft-col a { margin-bottom: 8px; font-size: 12px; }
+  .ft-col h4 { margin-bottom: 14px; font-size: 11px; }
+  #footer {
+    padding: 80px 20px 30px !important;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden !important;
+    justify-content: flex-start;
+  }
   .menu-inner { flex-direction: column; padding: 100px 20px 40px; }
   .menu-contact { padding-left: 0; margin-top: 40px; }
   .menu-links a { font-size: 20px; }
-  .scroll-hint { left: 20px; }
+  .scroll-hint { display: none; }
   #fallback { right: 50%; transform: translate(50%, -50%); top: 18%; width: 45px; height: 120px; }
 }
 </style>
@@ -601,7 +617,7 @@ body {
           <div class="benefit-d">Dead phones kill visits. Charged phones extend them. Show your customers you care.</div>
         </div>
       </div>
-      <div class="rv" style="margin-top:40px;">
+      <div class="rv" style="margin-top:24px;">
         <a href="mailto:hello@powerspot.co" class="btn btn-f">BECOME A PARTNER</a>
       </div>
     </div>
@@ -909,8 +925,10 @@ let currentSection = 0;
 let isScrolling = false;
 let footerOpen = false;
 const footerEl = document.getElementById('footer');
-const COOLDOWN = mobile ? 1000 : 650;
+const COOLDOWN = mobile ? 600 : 650;
 const WHEEL_THRESHOLD = 45;
+const SWIPE_DIST = mobile ? 45 : 80;
+const SWIPE_FAST_DIST = mobile ? 20 : 30;
 let wheelAccum = 0;
 let wheelTimer = null;
 
@@ -922,19 +940,23 @@ function setModelTarget(idx) {
   cur.rimRI = st.rimRI;  cur.rimLI = st.rimLI;
 }
 
+function sectionTop(idx) {
+  // Use offsetTop so iOS URL bar resizing doesn't drift our snap math
+  return sectionEls[idx] ? sectionEls[idx].offsetTop : idx * innerHeight;
+}
+
 function goToSection(idx) {
   if (idx < 0 || idx >= totalSections || isScrolling) return;
   if (footerOpen) { closeFooter(); return; }
   isScrolling = true;
   currentSection = idx;
-  const target = idx * innerHeight;
+  const target = sectionTop(idx);
   window.scrollTo({ top: target, behavior: 'auto' });
   setModelTarget(idx);
   updateSideNav(idx);
   setTimeout(() => triggerReveals(idx), 100);
-  // Re-force scroll position in case browser drifted, then unlock
   setTimeout(() => {
-    window.scrollTo({ top: target, behavior: 'auto' });
+    window.scrollTo({ top: sectionTop(idx), behavior: 'auto' });
     isScrolling = false;
   }, COOLDOWN);
 }
@@ -944,7 +966,7 @@ function openFooter() {
   isScrolling = true;
   footerOpen = true;
   footerEl.classList.add('open');
-  setTimeout(() => { isScrolling = false; }, 700);
+  setTimeout(() => { isScrolling = false; }, mobile ? 500 : 700);
 }
 
 function closeFooter() {
@@ -952,7 +974,9 @@ function closeFooter() {
   isScrolling = true;
   footerOpen = false;
   footerEl.classList.remove('open');
-  setTimeout(() => { isScrolling = false; }, 700);
+  // Re-pin scroll to current section in case iOS drifted while footer was open
+  window.scrollTo({ top: sectionTop(currentSection), behavior: 'auto' });
+  setTimeout(() => { isScrolling = false; }, mobile ? 500 : 700);
 }
 
 // Wheel (accumulate delta to ignore small trackpad movements)
@@ -979,7 +1003,8 @@ window.addEventListener('wheel', (e) => {
   }
 }, { passive: false });
 
-// Touch — prevent native scroll, detect swipe direction
+// Touch — always prevent native scroll, detect swipe direction.
+// Footer content is sized to fit 100dvh on mobile so no inner scroll needed.
 let touchStartY = 0;
 let touchStartTime = 0;
 let touchLocked = false;
@@ -991,10 +1016,7 @@ window.addEventListener('touchstart', (e) => {
 }, { passive: true });
 
 window.addEventListener('touchmove', (e) => {
-  // Prevent native scroll so it doesn't fight with goToSection
-  if (!footerOpen || !e.target.closest('#footer')) {
-    e.preventDefault();
-  }
+  e.preventDefault();
 }, { passive: false });
 
 window.addEventListener('touchend', (e) => {
@@ -1002,8 +1024,7 @@ window.addEventListener('touchend', (e) => {
   const diff = touchStartY - e.changedTouches[0].clientY;
   const elapsed = Date.now() - touchStartTime;
 
-  // Need decent swipe distance OR fast flick
-  const isSwipe = Math.abs(diff) > 80 || (Math.abs(diff) > 30 && elapsed < 300);
+  const isSwipe = Math.abs(diff) > SWIPE_DIST || (Math.abs(diff) > SWIPE_FAST_DIST && elapsed < 300);
   if (!isSwipe) return;
 
   touchLocked = true;
@@ -1024,13 +1045,18 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); if (footerOpen) closeFooter(); else goToSection(currentSection - 1); }
 });
 
-// Resize: re-snap
+// Resize: re-snap to current section using offsetTop (URL-bar safe on iOS)
+let lastResizeW = innerWidth;
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
-  window.scrollTo({ top: currentSection * innerHeight, behavior: 'auto' });
+  // Only re-snap on real width changes (orientation), not iOS URL bar collapse
+  if (innerWidth !== lastResizeW && !footerOpen) {
+    window.scrollTo({ top: sectionTop(currentSection), behavior: 'auto' });
+    lastResizeW = innerWidth;
+  }
 });
 
 /* ─── SIDE NAV ─── */
@@ -1094,7 +1120,7 @@ document.querySelectorAll('#footer a[href^="#s"]').forEach(a => {
       footerOpen = false;
       footerEl.classList.remove('open');
       currentSection = targetIdx;
-      window.scrollTo({ top: targetIdx * innerHeight, behavior: 'auto' });
+      window.scrollTo({ top: sectionTop(targetIdx), behavior: 'auto' });
       setModelTarget(targetIdx);
       updateSideNav(targetIdx);
       setTimeout(() => triggerReveals(targetIdx), 100);
