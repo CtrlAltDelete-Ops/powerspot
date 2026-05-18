@@ -373,6 +373,7 @@ body {
 @media (max-width: 768px) {
   #side-nav { display: none; }
   #nav { padding: 0 20px; }
+  #c, #fallback { display: none !important; }
   .section {
     padding: 80px 20px 24px !important;
     height: 100vh;
@@ -698,33 +699,37 @@ renderer.toneMappingExposure = 0.8;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 /* ─── ENVIRONMENT MAP (real studio HDRI) ─── */
-const pmrem = new THREE.PMREMGenerator(renderer);
-pmrem.compileEquirectangularShader();
 let envMap = null;
-
-const hdriReady = new Promise((resolve) => {
-  new RGBELoader().load('/studio.hdr', (texture) => {
-    envMap = pmrem.fromEquirectangular(texture).texture;
-    scene.environment = envMap;
-    texture.dispose();
-    pmrem.dispose();
-    resolve();
-  }, undefined, () => {
-    // Fallback: simple neutral env if HDRI fails
-    const c = document.createElement('canvas');
-    c.width = 256; c.height = 128;
-    const g = c.getContext('2d');
-    const gr = g.createLinearGradient(0, 0, 0, 128);
-    gr.addColorStop(0, '#555'); gr.addColorStop(1, '#222');
-    g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
-    const t = new THREE.CanvasTexture(c);
-    t.mapping = THREE.EquirectangularReflectionMapping;
-    envMap = pmrem.fromEquirectangular(t).texture;
-    scene.environment = envMap;
-    t.dispose(); pmrem.dispose();
-    resolve();
+let hdriReady;
+if (mobile) {
+  hdriReady = Promise.resolve();
+} else {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  hdriReady = new Promise((resolve) => {
+    new RGBELoader().load('/studio.hdr', (texture) => {
+      envMap = pmrem.fromEquirectangular(texture).texture;
+      scene.environment = envMap;
+      texture.dispose();
+      pmrem.dispose();
+      resolve();
+    }, undefined, () => {
+      // Fallback: simple neutral env if HDRI fails
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 128;
+      const g = c.getContext('2d');
+      const gr = g.createLinearGradient(0, 0, 0, 128);
+      gr.addColorStop(0, '#555'); gr.addColorStop(1, '#222');
+      g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+      const t = new THREE.CanvasTexture(c);
+      t.mapping = THREE.EquirectangularReflectionMapping;
+      envMap = pmrem.fromEquirectangular(t).texture;
+      scene.environment = envMap;
+      t.dispose(); pmrem.dispose();
+      resolve();
+    });
   });
-});
+}
 
 /* ─── POST-PROCESSING ─── */
 const composer = new EffectComposer(renderer);
@@ -783,7 +788,10 @@ scene.add(pivotGroup);
 let circuitLines = null;
 let circuitLineMat = null;
 
-hdriReady.then(() => {
+if (mobile) {
+  // No 3D model on mobile — circuits-only experience
+  modelReady = true;
+} else hdriReady.then(() => {
   new GLTFLoader().load('/power_bank.glb',
     (gltf) => {
       try {
@@ -933,6 +941,7 @@ let wheelAccum = 0;
 let wheelTimer = null;
 
 function setModelTarget(idx) {
+  if (mobile) return;
   const st = states[Math.min(idx, states.length - 1)];
   cur.px = st.px;  cur.py = st.py;  cur.pz = st.pz;
   cur.rx = st.rx;  cur.ry = st.ry;  cur.rz = st.rz;
@@ -953,6 +962,7 @@ function goToSection(idx) {
   const target = sectionTop(idx);
   window.scrollTo({ top: target, behavior: 'auto' });
   setModelTarget(idx);
+  if (mobile && window.setCircuitState) window.setCircuitState(idx);
   updateSideNav(idx);
   setTimeout(() => triggerReveals(idx), 100);
   setTimeout(() => {
@@ -1122,6 +1132,7 @@ document.querySelectorAll('#footer a[href^="#s"]').forEach(a => {
       currentSection = targetIdx;
       window.scrollTo({ top: sectionTop(targetIdx), behavior: 'auto' });
       setModelTarget(targetIdx);
+      if (mobile && window.setCircuitState) window.setCircuitState(targetIdx);
       updateSideNav(targetIdx);
       setTimeout(() => triggerReveals(targetIdx), 100);
     } else {
@@ -1140,6 +1151,7 @@ let spinAngle = 0;
 function animate(now) {
   requestAnimationFrame(animate);
   if (document.hidden) return;
+  if (mobile) { lastTime = now; return; }
 
   const dt = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
@@ -1229,12 +1241,16 @@ function triggerReveals(idx) {
     paths = [];
     nodes = [];
 
-    // Helper: create a circuit path from corner/edge positions
+    // Helper: create a circuit path from corner/edge positions.
+    // Tags side so the section-transition pulse can extend inward-going points further.
     function addPath(pts, animated, speed) {
-      paths.push({ pts, animated: !!animated, speed: speed || 1, dashOffset: Math.random() * 200 });
-      // Add nodes at corners
+      // Side = which screen edge this path springs from. Used by pulse extension.
+      const firstX = pts[0][0];
+      const side = firstX <= W * 0.5 ? 'left' : 'right';
+      paths.push({ pts, side, animated: !!animated, speed: speed || 1, dashOffset: Math.random() * 200 });
+      // Add nodes at corners. Tag with side so they follow the line during the pulse.
       for (let i = 1; i < pts.length - 1; i++) {
-        nodes.push({ x: pts[i][0], y: pts[i][1], phase: Math.random() * Math.PI * 2 });
+        nodes.push({ x: pts[i][0], y: pts[i][1], side, phase: Math.random() * Math.PI * 2 });
       }
     }
 
@@ -1266,51 +1282,155 @@ function triggerReveals(idx) {
   buildCircuits();
   window.addEventListener('resize', buildCircuits);
 
+  if (!mobile) {
+    /* ─── DESKTOP: original circuit draw loop, unchanged ─── */
+    let frameTime = 0;
+    function drawCircuits() {
+      requestAnimationFrame(drawCircuits);
+      if (document.hidden) return;
+      frameTime += 0.016;
+
+      ctx.clearRect(0, 0, W, H);
+
+      const scrollOff = scrollY * 0.06;
+
+      ctx.save();
+      ctx.translate(0, scrollOff);
+
+      // Draw static lines
+      for (const p of paths) {
+        ctx.beginPath();
+        ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+        for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+
+        if (p.animated) {
+          ctx.strokeStyle = 'rgba(41, 121, 255, 0.25)';
+          ctx.lineWidth = 1.3;
+          ctx.setLineDash([7, 16]);
+          ctx.lineDashOffset = -(frameTime * 30 * p.speed + p.dashOffset);
+        } else {
+          ctx.strokeStyle = 'rgba(41, 121, 255, 0.15)';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([]);
+        }
+        ctx.stroke();
+      }
+
+      // Draw nodes (pulsing circles at corners)
+      for (const n of nodes) {
+        const pulse = 0.15 + 0.3 * (0.5 + 0.5 * Math.sin(frameTime * 1.8 + n.phase));
+        const r = 3 + 1.5 * (0.5 + 0.5 * Math.sin(frameTime * 1.8 + n.phase));
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(41, 121, 255, ${pulse})`;
+        ctx.fill();
+
+        // Glow
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(41, 121, 255, ${pulse * 0.25})`;
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+    drawCircuits();
+    return;
+  }
+
+  /* ─── MOBILE: persistent per-section circuit "personalities" ───
+   * Each section holds its own visual character until the user navigates away;
+   * transitions ease smoothly. Knobs per state:
+   *   ext        — inward reach (edge points anchored)
+   *   bright     — line alpha multiplier
+   *   flow       — dash flow speed multiplier
+   *   width      — line thickness multiplier
+   *   nodeScale  — corner-dot radius multiplier
+   *   nodeBright — corner-dot alpha multiplier
+   */
+  const CIRCUIT_STATES = [
+    { ext: 1.00, bright: 1.00, flow: 1.00, width: 1.00, nodeScale: 1.00, nodeBright: 1.00 }, // S1 hero: calm baseline
+    { ext: 1.45, bright: 1.15, flow: 0.85, width: 1.00, nodeScale: 1.00, nodeBright: 1.10 }, // S2 about: reaching inward
+    { ext: 1.10, bright: 1.30, flow: 2.60, width: 1.15, nodeScale: 1.10, nodeBright: 1.30 }, // S3 how it works: active flow
+    { ext: 1.25, bright: 1.75, flow: 1.30, width: 1.35, nodeScale: 1.45, nodeBright: 1.80 }, // S4 built for Mogadishu: charged
+    { ext: 0.92, bright: 0.62, flow: 0.20, width: 0.85, nodeScale: 0.80, nodeBright: 0.65 }, // S5 available at: sparse + dim
+    { ext: 1.55, bright: 1.90, flow: 2.80, width: 1.45, nodeScale: 1.55, nodeBright: 2.00 }, // S6 for business: max reach + radiant
+  ];
+  const targetState = { ...CIRCUIT_STATES[0] };
+  const curState    = { ...CIRCUIT_STATES[0] };
+  window.setCircuitState = (idx) => {
+    const s = CIRCUIT_STATES[Math.max(0, Math.min(CIRCUIT_STATES.length - 1, idx))];
+    Object.assign(targetState, s);
+  };
+
+  // flowPhase accumulates with dt so the dash position stays continuous when
+  // the flow-speed multiplier changes across sections (avoids dash "jumping").
+  let flowPhase = 0;
   let frameTime = 0;
+  let lastFrame = performance.now();
+
   function drawCircuits() {
     requestAnimationFrame(drawCircuits);
-    if (document.hidden) return;
-    frameTime += 0.016;
+    if (document.hidden) { lastFrame = performance.now(); return; }
+
+    const now = performance.now();
+    const dt = Math.min((now - lastFrame) / 1000, 0.05);
+    lastFrame = now;
+    frameTime += dt;
+
+    // Ease current state toward target (~600ms settle, framerate-independent)
+    const k = 1 - Math.pow(0.96, dt * 60);
+    for (const key in curState) curState[key] += (targetState[key] - curState[key]) * k;
+
+    flowPhase += dt * 30 * curState.flow;
 
     ctx.clearRect(0, 0, W, H);
 
     const scrollOff = scrollY * 0.06;
 
+    // Project a path's x coordinates inward by the current extension factor,
+    // anchored to its origin edge. Edge points (x=0 left, x=W right) stay put.
+    const ext = curState.ext;
+    function projectX(x, side) {
+      if (side === 'left')  return Math.min(W * 0.5, x * ext);
+      else                  return Math.max(W * 0.5, W - (W - x) * ext);
+    }
+
     ctx.save();
     ctx.translate(0, scrollOff);
 
-    // Draw static lines
     for (const p of paths) {
       ctx.beginPath();
-      ctx.moveTo(p.pts[0][0], p.pts[0][1]);
-      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      ctx.moveTo(projectX(p.pts[0][0], p.side), p.pts[0][1]);
+      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(projectX(p.pts[i][0], p.side), p.pts[i][1]);
 
       if (p.animated) {
-        ctx.strokeStyle = 'rgba(41, 121, 255, 0.25)';
-        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = `rgba(41, 121, 255, ${Math.min(1, 0.25 * curState.bright)})`;
+        ctx.lineWidth = 1.3 * curState.width;
         ctx.setLineDash([7, 16]);
-        ctx.lineDashOffset = -(frameTime * 30 * p.speed + p.dashOffset);
+        ctx.lineDashOffset = -(flowPhase * p.speed + p.dashOffset);
       } else {
-        ctx.strokeStyle = 'rgba(41, 121, 255, 0.15)';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = `rgba(41, 121, 255, ${Math.min(1, 0.15 * curState.bright)})`;
+        ctx.lineWidth = 1.2 * curState.width;
         ctx.setLineDash([]);
       }
       ctx.stroke();
     }
 
-    // Draw nodes (pulsing circles at corners)
+    // Corner-node dots — anchored to projected line corners; size/alpha scale with state.
     for (const n of nodes) {
-      const pulse = 0.15 + 0.3 * (0.5 + 0.5 * Math.sin(frameTime * 1.8 + n.phase));
-      const r = 3 + 1.5 * (0.5 + 0.5 * Math.sin(frameTime * 1.8 + n.phase));
+      const sine = 0.5 + 0.5 * Math.sin(frameTime * 1.8 + n.phase);
+      const alpha = Math.min(1, (0.15 + 0.3 * sine) * curState.nodeBright);
+      const r = (3 + 1.5 * sine) * curState.nodeScale;
+      const nx = projectX(n.x, n.side);
       ctx.beginPath();
-      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(41, 121, 255, ${pulse})`;
+      ctx.arc(nx, n.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(41, 121, 255, ${alpha})`;
       ctx.fill();
 
-      // Glow
       ctx.beginPath();
-      ctx.arc(n.x, n.y, r + 4, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(41, 121, 255, ${pulse * 0.25})`;
+      ctx.arc(nx, n.y, r + 4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(41, 121, 255, ${alpha * 0.25})`;
       ctx.fill();
     }
 
