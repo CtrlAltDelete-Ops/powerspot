@@ -56,12 +56,12 @@ body {
 }
 
 /* ─── THREE.JS CANVAS ─── */
-#c { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
-/* Mobile: dim the bank so it sits behind the headline rather than competing
-   with it. 0.7 keeps the dark body readable against the near-black background
-   (any lower and the bank silhouette vanishes). */
+#c { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+/* Mobile: bump the bank above the circuit-canvas (z-index 3) so the bank
+   silhouette covers circuits where they overlap, and dim it so it integrates
+   with the dark background rather than competing with the headline. */
 @media (max-width: 768px) {
-  #c { opacity: 0.7; }
+  #c { z-index: 4; opacity: 0.7; }
 }
 
 /* ─── CSS FALLBACK ─── */
