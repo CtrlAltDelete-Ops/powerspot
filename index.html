@@ -175,12 +175,13 @@ body {
 
 /* ─── SECTIONS ─── */
 .section {
-  height: 100vh; overflow: hidden; display: flex; align-items: center;
-  padding: 120px 100px 120px 60px; position: relative;
+  height: 100vh; display: flex; align-items: center;
+  padding: 80px 100px 40px 60px; position: relative;
+  overflow: hidden;
 }
 .section.align-left { justify-content: flex-start; }
 .section.align-right { justify-content: flex-end; padding-right: 120px; }
-.section-inner { max-width: 500px; width: 42%; }
+.section-inner { max-width: 500px; width: 42%; max-height: calc(100vh - 120px); overflow-y: auto; }
 
 /* ─── TYPOGRAPHY ─── */
 .label {
@@ -372,9 +373,25 @@ body {
 @media (max-width: 768px) {
   #side-nav { display: none; }
   #nav { padding: 0 20px; }
-  .section { padding: 100px 20px 40px !important; height: 100vh; align-items: flex-start; }
-  .section.align-left, .section.align-right { justify-content: flex-start; }
-  .section-inner { width: 100% !important; max-width: 100% !important; }
+  .section {
+    padding: 80px 20px 30px !important;
+    height: 100vh;
+    align-items: center;
+    justify-content: center !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .section-inner {
+    width: 100% !important; max-width: 100% !important;
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .step-d, .benefit-d, .body-t { font-size: 14px !important; }
+  .step-t, .benefit-t { font-size: 17px !important; }
+  .stat .num { font-size: 26px !important; }
+  .steps .step { padding: 16px 0 !important; }
+  .benefits .benefit { padding: 18px 0 !important; }
   .hero-h { font-size: 36px; }
   .headline { font-size: 24px; }
   .stats { gap: 28px; }
