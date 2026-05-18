@@ -698,10 +698,26 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.8;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-/* ─── ENVIRONMENT MAP (real studio HDRI) ─── */
+/* ─── ENVIRONMENT MAP ─── */
+// Desktop loads a real studio HDRI for max realism. Mobile uses a synthesized
+// gradient env so the clearcoat material still picks up subtle reflections
+// without paying the HDR download cost on cellular.
 let envMap = null;
 let hdriReady;
 if (mobile) {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 128);
+  gr.addColorStop(0, '#666'); gr.addColorStop(0.5, '#333'); gr.addColorStop(1, '#1a1a1a');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.mapping = THREE.EquirectangularReflectionMapping;
+  envMap = pmrem.fromEquirectangular(t).texture;
+  scene.environment = envMap;
+  t.dispose(); pmrem.dispose();
   hdriReady = Promise.resolve();
 } else {
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -761,12 +777,14 @@ scene.add(new THREE.AmbientLight(0x080808, 0.2));
 // rx/rz = tilt, ry = scroll-driven rotation offset (spin is added on top)
 const P2 = Math.PI * 2;
 const states = mobile ? [
-  { px: 0, py: 0, pz: 0, rx: 0, ry: 0,      rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: 0, pz: 0, rx: 0, ry: P2,     rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 2, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 3, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 4, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
-  { px: 0, py: 0, pz: 0, rx: 0, ry: P2 * 5, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
+  // S1 hero: bank visible, centered slightly below middle so headline reads above it.
+  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0.55, rimRI: 0.5, rimLI: 0.25 },
+  // S2–S6: scale 0 hides the bank — circuits-only experience on subsequent sections.
+  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
+  { px: 0, py: -0.35, pz: 0, rx: 0, ry: 0, rz: 0, s: 0,    rimRI: 0.5, rimLI: 0.25 },
 ] : [
   { px:  2.2, py: 0,    pz: 0,   rx: 0, ry: 0,      rz: 0, s: 1.0,  rimRI: 0.5, rimLI: 0.25 },  // S1
   { px: -2.2, py: 0.2,  pz: 0,   rx: 0, ry: P2,     rz: 0, s: 0.95, rimRI: 0.5, rimLI: 0.25 },  // S2
@@ -788,10 +806,7 @@ scene.add(pivotGroup);
 let circuitLines = null;
 let circuitLineMat = null;
 
-if (mobile) {
-  // No 3D model on mobile — circuits-only experience
-  modelReady = true;
-} else hdriReady.then(() => {
+hdriReady.then(() => {
   new GLTFLoader().load('/power_bank.glb',
     (gltf) => {
       try {
@@ -941,7 +956,6 @@ let wheelAccum = 0;
 let wheelTimer = null;
 
 function setModelTarget(idx) {
-  if (mobile) return;
   const st = states[Math.min(idx, states.length - 1)];
   cur.px = st.px;  cur.py = st.py;  cur.pz = st.pz;
   cur.rx = st.rx;  cur.ry = st.ry;  cur.rz = st.rz;
@@ -1151,17 +1165,19 @@ let spinAngle = 0;
 function animate(now) {
   requestAnimationFrame(animate);
   if (document.hidden) return;
-  if (mobile) { lastTime = now; return; }
 
   const dt = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
   time += dt;
 
-  spinAngle += dt * 0.03;
+  // Mobile auto-spin: ~3.4°/sec — slow enough to feel like a product turntable.
+  // Desktop keeps the dead-stop look (rotation is purely scroll-driven).
+  spinAngle += dt * (mobile ? 0.06 : 0.03);
 
   if (pivotGroup) {
     const L = THREE.MathUtils.lerp;
-    const f = 1 - Math.pow(1 - lerpF, dt * 60);
+    // Slower lerp on mobile gives a more cinematic fade-out when leaving S1.
+    const f = 1 - Math.pow(1 - (mobile ? 0.05 : lerpF), dt * 60);
 
     smooth.px = L(smooth.px, cur.px, f);
     smooth.py = L(smooth.py, cur.py, f);
@@ -1171,12 +1187,18 @@ function animate(now) {
     smooth.rz = L(smooth.rz, cur.rz, f);
     smooth.s  = L(smooth.s, cur.s, f);
 
+    // Floating bob — gentler and slower on mobile for a calmer product showcase.
+    const bobAmp  = mobile ? 0.025 : 0.012;
+    const bobFreq = mobile ? 0.35  : 0.6;
+
     pivotGroup.position.x = smooth.px;
-    pivotGroup.position.y = smooth.py + Math.sin(time * 0.6) * 0.012;
+    pivotGroup.position.y = smooth.py + Math.sin(time * bobFreq) * bobAmp;
     pivotGroup.position.z = smooth.pz;
 
-    pivotGroup.rotation.x = smooth.rx;
-    pivotGroup.rotation.y = smooth.ry;
+    // Mobile adds a continuous turntable spin + subtle side sway on top of the
+    // scroll-driven rotation. Desktop is unchanged (purely scroll-driven).
+    pivotGroup.rotation.x = smooth.rx + (mobile ? Math.sin(time * 0.25) * 0.06 : 0);
+    pivotGroup.rotation.y = smooth.ry + (mobile ? spinAngle : 0);
     pivotGroup.rotation.z = smooth.rz;
 
     const targetS = modelScale * smooth.s;
