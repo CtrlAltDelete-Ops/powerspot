@@ -798,7 +798,7 @@ hdriReady.then(() => {
             a.applyMatrix4(child.matrixWorld);
             b.applyMatrix4(child.matrixWorld);
             const mid = a.clone().add(b).multiplyScalar(0.5);
-            const outDir = mid.clone().normalize().multiplyScalar(0.008);
+            const outDir = mid.clone().normalize().multiplyScalar(0.012);
             a.add(outDir); b.add(outDir);
             edgePoints.push(a, b);
           }
@@ -825,10 +825,14 @@ hdriReady.then(() => {
               uniform vec3 uColor;
               varying vec3 vPos;
               void main() {
-                float flow = fract((vPos.x + vPos.y + vPos.z) * 3.0 - uTime * 1.2);
-                float pulse = smoothstep(0.0, 0.1, flow) * smoothstep(0.35, 0.1, flow);
-                float alpha = 0.15 + pulse * 0.85;
-                vec3 col = uColor * (1.0 + pulse * 2.0);
+                // Two flowing pulses at different speeds for layered energy feel
+                float flow1 = fract((vPos.x + vPos.y + vPos.z) * 2.5 - uTime * 1.6);
+                float flow2 = fract((vPos.x - vPos.y + vPos.z * 0.5) * 1.8 + uTime * 0.9);
+                float pulse1 = smoothstep(0.0, 0.08, flow1) * smoothstep(0.3, 0.08, flow1);
+                float pulse2 = smoothstep(0.0, 0.12, flow2) * smoothstep(0.4, 0.12, flow2) * 0.5;
+                float pulse = max(pulse1, pulse2);
+                float alpha = 0.25 + pulse * 0.75;
+                vec3 col = uColor * (1.5 + pulse * 3.0);
                 gl_FragColor = vec4(col, alpha);
               }
             `,
@@ -892,7 +896,7 @@ let currentSection = 0;
 let isScrolling = false;
 let footerOpen = false;
 const footerEl = document.getElementById('footer');
-const COOLDOWN = 650;
+const COOLDOWN = mobile ? 1000 : 650;
 const WHEEL_THRESHOLD = 45;
 let wheelAccum = 0;
 let wheelTimer = null;
@@ -910,11 +914,16 @@ function goToSection(idx) {
   if (footerOpen) { closeFooter(); return; }
   isScrolling = true;
   currentSection = idx;
-  window.scrollTo({ top: idx * innerHeight, behavior: 'smooth' });
+  const target = idx * innerHeight;
+  window.scrollTo({ top: target, behavior: 'auto' });
   setModelTarget(idx);
   updateSideNav(idx);
   setTimeout(() => triggerReveals(idx), 100);
-  setTimeout(() => { isScrolling = false; }, COOLDOWN);
+  // Re-force scroll position in case browser drifted, then unlock
+  setTimeout(() => {
+    window.scrollTo({ top: target, behavior: 'auto' });
+    isScrolling = false;
+  }, COOLDOWN);
 }
 
 function openFooter() {
@@ -957,12 +966,35 @@ window.addEventListener('wheel', (e) => {
   }
 }, { passive: false });
 
-// Touch
-let touchY = 0;
-window.addEventListener('touchstart', (e) => { touchY = e.touches[0].clientY; }, { passive: true });
+// Touch — prevent native scroll, detect swipe direction
+let touchStartY = 0;
+let touchStartTime = 0;
+let touchLocked = false;
+
+window.addEventListener('touchstart', (e) => {
+  touchStartY = e.touches[0].clientY;
+  touchStartTime = Date.now();
+  touchLocked = false;
+}, { passive: true });
+
+window.addEventListener('touchmove', (e) => {
+  // Prevent native scroll so it doesn't fight with goToSection
+  if (!footerOpen || !e.target.closest('#footer')) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 window.addEventListener('touchend', (e) => {
-  const diff = touchY - e.changedTouches[0].clientY;
-  if (Math.abs(diff) < 50 || isScrolling) return;
+  if (isScrolling || touchLocked) return;
+  const diff = touchStartY - e.changedTouches[0].clientY;
+  const elapsed = Date.now() - touchStartTime;
+
+  // Need decent swipe distance OR fast flick
+  const isSwipe = Math.abs(diff) > 80 || (Math.abs(diff) > 30 && elapsed < 300);
+  if (!isSwipe) return;
+
+  touchLocked = true;
+
   if (diff > 0) {
     if (footerOpen) return;
     if (currentSection === totalSections - 1) openFooter();
